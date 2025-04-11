@@ -32,4 +32,12 @@
 
 ## 💬 Usage
 
-Commands and config details, and API are coming soon.
+Commands, config details, and API are coming soon.
+
+---
+
+## 🛠️ To Do
+
+- Add automatic arena regeneration.
+- Create an API for developers.
+- More features

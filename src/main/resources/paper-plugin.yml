@@ -1,0 +1,4 @@
+name: NexelArena
+version: '${version}'
+main: net.vansen.nexelarena.NexelArena
+api-version: '1.21'
