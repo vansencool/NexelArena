@@ -26,7 +26,7 @@
 
 ## 📦 Installation
 
-1. Download the NexelArena plugin.
+1. Compile the NexelArena plugin (Plugin will be published soon.)
 2. Drop it into your server's `/plugins/` folder.
 3. Restart your server (you can reload as well, though not really recommended).
 
