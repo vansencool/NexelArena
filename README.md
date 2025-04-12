@@ -1,7 +1,8 @@
 # NexelArena
 
-**NexelArena** is an **INSANELY fast**, fully **asynchronous arena regenerator**.
+**NexelArena** is an **very fast**, fully **asynchronous arena regenerator**.
 
+> ⚠ **Heavily Experimental** — This project is heavily experimental, and as of now, the memory consumption is alot (around 1 gb for 10 million blocks,) and, is not living up to expectations (such as being 2x slower than FAWE).
 > ⚠ **PaperMC ONLY** — This will **NOT** work on Spigot or non-Paper forks!
 
 ---
@@ -9,7 +10,7 @@
 ## 🚀 Features
 
 - **Blazing Fast Performance**:
-    - We're not kidding. It's INSANELY fast.
+    - We're not kidding. It's fast.
 
 - **Zero Dependencies**:
     - No WorldEdit.
