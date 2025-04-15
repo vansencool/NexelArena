@@ -24,7 +24,8 @@ public class LogFilter implements Filter {
     public static List<String> list = Arrays.asList(
             "Failed to create block entity",
             "Skipping BlockEntity with id",
-            "Invalid block entity"
+            "Invalid block entity",
+            "Invalid for ticking"
     );
 
     public static void register() {

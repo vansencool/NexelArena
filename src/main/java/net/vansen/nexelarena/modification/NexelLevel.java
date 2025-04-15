@@ -1,40 +1,36 @@
 package net.vansen.nexelarena.modification;
 
-import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.ChunkPos;
-import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.chunk.ChunkAccess;
 import net.minecraft.world.level.chunk.LevelChunkSection;
 import net.vansen.nexelarena.NexelArena;
-import net.vansen.nexelarena.collections.BlockMap;
-import net.vansen.nexelarena.collections.impl.FastBlockMap;
+import net.vansen.nexelarena.config.Variables;
+import net.vansen.nexelarena.modification.update.BlockUpdate;
+import net.vansen.nexelarena.modification.update.ChunkUpdates;
 import org.bukkit.Bukkit;
-import org.bukkit.Chunk;
 import org.bukkit.World;
 import org.bukkit.craftbukkit.CraftWorld;
 import org.jetbrains.annotations.NotNull;
 
-import java.util.Set;
-import java.util.TreeSet;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 
 /**
- * This class is used to batch block updates in a very fast (low level) way.
- * <p>
- * THIS CLASS IS NOT THREAD SAFE! you can run this async of course, but you cannot run the same instance in multiple threads at the same time.
+ * This class is used to batch chunk (blocks) updates in a very fast, async way.
  */
 @SuppressWarnings("unused")
 public class NexelLevel {
 
-    private final BlockMap pendingBlockUpdates;
-    private final Set<Long> updatedChunks = new TreeSet<>();
+    private List<ChunkUpdates> updates = new ArrayList<>();
     private Consumer<Integer> callback = ignored -> {
         // do nothing
     };
     private final World world;
+    private Schematic schematic;
+    private boolean clearAfterApply = true;
+    private final Object lock = new Object();
 
     /**
      * Creates a new NexelLevel instance.
@@ -43,33 +39,6 @@ public class NexelLevel {
      */
     public NexelLevel(@NotNull World world) {
         this.world = world;
-        this.pendingBlockUpdates = new FastBlockMap();
-    }
-
-    /**
-     * Creates a new NexelLevel instance with a custom BlockMap.
-     *
-     * @param world               The world to use.
-     * @param pendingBlockUpdates The BlockMap to use for pending block updates.
-     */
-    public NexelLevel(@NotNull World world, @NotNull BlockMap pendingBlockUpdates) {
-        this.world = world;
-        this.pendingBlockUpdates = pendingBlockUpdates;
-    }
-
-    /**
-     * Sets a block at the given position without updating.
-     * This method is used to batch block updates for performance reasons and should not be used for individual block updates!
-     *
-     * @param pos   The position of the block to set.
-     * @param state The block state to set.
-     */
-    public void block(@NotNull BlockPos pos, @NotNull BlockState state) {
-        pendingBlockUpdates.put(pos.getX(), pos.getY(), pos.getZ(), state);
-        boolean bool = updatedChunks.add(Chunk.getChunkKey(pos.getX() >> 4, pos.getZ() >> 4));
-        if (bool) {
-            world.addPluginChunkTicket(pos.getX() >> 4, pos.getZ() >> 4, NexelArena.instance());
-        }
     }
 
     /**
@@ -79,56 +48,88 @@ public class NexelLevel {
      */
     @SuppressWarnings("all")
     public int applyPendingBlockUpdates() {
-        int updatedCount = pendingBlockUpdates.size();
+        int total = 0;
+        for (ChunkUpdates chunkUpdates : updates) {
+            total += chunkUpdates.updates.size();
+        }
+        final int totalUpdates = total;
+        if (totalUpdates == 0) {
+            return 0;
+        }
+
         CompletableFuture.runAsync(() -> {
-            ConcurrentHashMap<Long, ChunkAccess> chunkCache = new ConcurrentHashMap<>();
-
-            AtomicInteger did = new AtomicInteger();
-            pendingBlockUpdates.forEach((x, y, z, state) -> {
-                long chunkKey = Chunk.getChunkKey(x >> 4, z >> 4);
-                ChunkAccess chunk = chunkCache.computeIfAbsent(chunkKey, key -> ((CraftWorld) world).getHandle().getChunk(x >> 4, z >> 4));
-
-                try {
-                    int sectionIndex = chunk.getSectionIndex(y);
-                    LevelChunkSection section = chunk.getSection(sectionIndex);
-
-                    if (section != null) {
-                        int localX = x & 15;
-                        int localY = y & 15;
-                        int localZ = z & 15;
-                        section.setBlockState(localX, localY, localZ, state, false);
+            synchronized (lock) {
+                for (ChunkUpdates chunkUpdates : updates) {
+                    ChunkAccess chunk = ((CraftWorld) world).getHandle().getChunk(chunkUpdates.chunkX, chunkUpdates.chunkZ);
+                    for (BlockUpdate update : chunkUpdates.updates) {
+                        int sectionIndex = chunk.getSectionIndex(update.y);
+                        LevelChunkSection section = chunk.getSection(sectionIndex);
+                        if (section != null) {
+                            int localX = update.x & 15;
+                            int localY = update.y & 15;
+                            int localZ = update.z & 15;
+                            section.setBlockState(localX, localY, localZ, update.state, false);
+                        }
                     }
-                } catch (Exception e) {
-                    // don't care
                 }
-            });
-            if (callback != null) {
-                callback.accept(updatedCount);
+
+                if (Variables.REFRESH_CHUNKS_ASYNC) afterwards(totalUpdates);
+                else
+                    CompletableFuture.runAsync(() -> afterwards(totalUpdates), Bukkit.getScheduler().getMainThreadExecutor(NexelArena.instance()));
+            }
+        });
+
+        return totalUpdates;
+    }
+
+    private void afterwards(int totalUpdates) {
+        synchronized (lock) {
+            for (ChunkUpdates chunkUpdates : updates) {
+                world.refreshChunk(chunkUpdates.chunkX, chunkUpdates.chunkZ);
+                if (clearAfterApply && Variables.ADD_CHUNKS_TO_FORCE_LOAD)
+                    world.removePluginChunkTicket(chunkUpdates.chunkX, chunkUpdates.chunkZ, NexelArena.instance());
             }
 
-            CompletableFuture.runAsync(() -> {
-                for (long chunkKey : updatedChunks) {
-                    int chunkX = (int) chunkKey;
-                    int chunkZ = (int) (chunkKey >> 32);
-                    world.refreshChunk(chunkX, chunkZ);
-                    world.removePluginChunkTicket(chunkX, chunkZ, NexelArena.instance());
-                }
-                ((CraftWorld) world).getHandle().getLightEngine().starlight$serverRelightChunks(updatedChunks.stream()
-                        .map(chunkKey -> new ChunkPos((int) (chunkKey & 0xFFFFFFFFL), (int) (chunkKey >> 32)))
-                        .toList(), null, null);
-                pendingBlockUpdates.clear();
-                updatedChunks.clear();
-            }, Bukkit.getScheduler().getMainThreadExecutor(net.vansen.nexelarena.NexelArena.instance()));
-        });
-        return updatedCount;
+            List<ChunkPos> chunkPositions = new ArrayList<>();
+            for (ChunkUpdates chunkUpdates : updates) {
+                chunkPositions.add(new ChunkPos(chunkUpdates.chunkX, chunkUpdates.chunkZ));
+            }
+            ((CraftWorld) world).getHandle().getLightEngine().starlight$serverRelightChunks(chunkPositions, null, null);
+            if (clearAfterApply) updates.clear();
+            if (callback != null) callback.accept(totalUpdates);
+        }
     }
 
     /**
      * Sets a callback to be called when the block updates are applied.
+     * <p>
+     * Note, this callback might be called on a different thread, or the main thread, depending on the config.
      *
      * @param callback The callback to be called when the block updates are applied.
      */
     public void callback(@NotNull Consumer<Integer> callback) {
         this.callback = callback;
+    }
+
+    /**
+     * Sets the block updates to be applied.
+     *
+     * @param updates The block updates to be applied.
+     * @return The current instance of NexelLevel.
+     */
+    public NexelLevel updates(@NotNull List<ChunkUpdates> updates) {
+        this.updates = updates;
+        return this;
+    }
+
+    /**
+     * If true, the chunk updates will be cleared after applying the block updates.
+     *
+     * @param clearAfterApply If true, the chunk updates will be cleared after applying the block updates.
+     * @return The current instance of NexelLevel.
+     */
+    public NexelLevel clearAfterApply(boolean clearAfterApply) {
+        this.clearAfterApply = clearAfterApply;
+        return this;
     }
 }

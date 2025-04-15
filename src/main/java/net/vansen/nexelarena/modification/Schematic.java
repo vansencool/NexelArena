@@ -1,9 +1,11 @@
 package net.vansen.nexelarena.modification;
 
-import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.block.state.BlockState;
-import net.vansen.nexelarena.collections.BlockMap;
-import net.vansen.nexelarena.collections.impl.FastBlockMap;
+import net.vansen.nexelarena.NexelArena;
+import net.vansen.nexelarena.modification.update.BlockUpdate;
+import net.vansen.nexelarena.modification.update.ChunkUpdates;
+import org.bukkit.Bukkit;
+import org.bukkit.Chunk;
 import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.craftbukkit.CraftWorld;
@@ -22,21 +24,20 @@ import java.util.concurrent.atomic.AtomicInteger;
 @SuppressWarnings("unused")
 public class Schematic {
 
-    private static final net.vansen.nexelarena.modification.SchematicCache cache = new net.vansen.nexelarena.modification.SchematicCache();
+    public static final String HEADER = "ZEAx9104817";
+    private static final SchematicCache cache = new SchematicCache();
 
-    private final BlockMap blockMap;
+    private final List<ChunkUpdates> updates = new ArrayList<>();
     private int originX, originY, originZ;
+    private World world;
+    private NexelLevel level;
 
     public Schematic() {
-        this.blockMap = new FastBlockMap();
-    }
-
-    public Schematic(@NotNull BlockMap blockMap) {
-        this.blockMap = blockMap;
     }
 
     public void saveRegion(@NotNull Player player, @NotNull World world, Location pos1, Location pos2, File file) {
         CompletableFuture.runAsync(() -> {
+            this.world = world;
             player.sendRichMessage("<#8336ff>Getting blocks...");
             long start = System.nanoTime();
             originX = Math.min(pos1.getBlockX(), pos2.getBlockX());
@@ -54,38 +55,46 @@ public class Schematic {
             for (int chunkX = chunkMinX; chunkX <= chunkMaxX; chunkX++) {
                 for (int chunkZ = chunkMinZ; chunkZ <= chunkMaxZ; chunkZ++) {
                     var chunk = ((CraftWorld) world).getHandle().getChunk(chunkX, chunkZ);
+                    long chunkKey = Chunk.getChunkKey(chunkX, chunkZ);
+                    ChunkUpdates chunkUpdates = new ChunkUpdates(chunkX, chunkZ);
+
                     for (int x = Math.max(originX, chunkX << 4); x <= Math.min(maxX, (chunkX << 4) + 15); x++) {
                         for (int y = originY; y <= maxY; y++) {
                             for (int z = Math.max(originZ, chunkZ << 4); z <= Math.min(maxZ, (chunkZ << 4) + 15); z++) {
                                 BlockState state = chunk.getBlockStateFinal(x, y, z);
-                                blockMap.put(x - originX, y - originY, z - originZ, state);
+                                chunkUpdates.updates.add(new BlockUpdate(x, y, z, state));
                             }
                         }
                     }
+
+                    if (!chunkUpdates.updates.isEmpty()) {
+                        updates.add(chunkUpdates);
+                        world.addPluginChunkTicket(chunkX, chunkZ, NexelArena.instance());
+                    }
                 }
             }
+
             long end = System.nanoTime();
-            player.sendRichMessage("<#8336ff>Done getting blocks (took: " + (end - start) / 1000000 + " ms), (found total: " + blockMap.size() + "), now saving...");
+            player.sendRichMessage("<#8336ff>Done getting blocks (took: " + (end - start) / 1000000 + " ms), (found total: " + updates.stream().mapToInt(u -> u.updates.size()).sum() + "), now saving...");
             long start2 = System.nanoTime();
             save(file).thenRun(() -> {
                 long end2 = System.nanoTime();
-                player.sendRichMessage("<#8336ff>Done saving schematic (took: " + (end2 - start2) / 1000000 + " ms), (found total: " + blockMap.size() + ")");
+                player.sendRichMessage("<#8336ff>Done saving schematic (took: " + (end2 - start2) / 1000000 + " ms), (found total: " + updates.stream().mapToInt(u -> u.updates.size()).sum() + ")");
             });
+            this.level = new NexelLevel(world).clearAfterApply(false).updates(updates);
         });
     }
 
     /**
-     * Pastes the schematic to the given world.
+     * Pastes the schematic.
      * <p>
      * Note, it is your responsibility to update the applied blocks.
      *
-     * @param world The world to paste the schematic to.
      * @return A CompletableFuture that holds the NexelLevel instance.
      */
-    public CompletableFuture<NexelLevel> paste(@NotNull World world) {
-        NexelLevel level = new NexelLevel(world);
+    public CompletableFuture<NexelLevel> paste() {
         return CompletableFuture.supplyAsync(() -> {
-            blockMap.forEach((x, y, z, state) -> level.block(new BlockPos(originX + x, originY + y, originZ + z), state));
+            level.updates(updates);
             return level;
         });
     }
@@ -99,6 +108,9 @@ public class Schematic {
     public CompletableFuture<Void> save(@NotNull File file) {
         return CompletableFuture.runAsync(() -> {
             try (DataOutputStream dos = new DataOutputStream(new BufferedOutputStream(new FileOutputStream(file)))) {
+                dos.writeUTF(HEADER);
+
+                dos.writeUTF(world.getName());
                 dos.writeInt(originX);
                 dos.writeInt(originY);
                 dos.writeInt(originZ);
@@ -106,10 +118,13 @@ public class Schematic {
                 Map<BlockState, Integer> indexes = new HashMap<>();
                 List<String> states = new ArrayList<>();
                 int index = 1;
-                for (BlockState state : blockMap.valuesNonCopy()) {
-                    if (state == null || indexes.containsKey(state)) continue;
-                    indexes.put(state, index++);
-                    states.add(state.toString());
+
+                for (ChunkUpdates chunkUpdates : updates) {
+                    for (BlockUpdate update : chunkUpdates.updates) {
+                        if (update.state == null || indexes.containsKey(update.state)) continue;
+                        indexes.put(update.state, index++);
+                        states.add(update.state.toString());
+                    }
                 }
 
                 dos.writeInt(states.size());
@@ -124,14 +139,16 @@ public class Schematic {
                 AtomicInteger maxY = new AtomicInteger(Integer.MIN_VALUE);
                 AtomicInteger maxZ = new AtomicInteger(Integer.MIN_VALUE);
 
-                blockMap.forEach((x, y, z, state) -> {
-                    minX.set(Math.min(minX.get(), x));
-                    minY.set(Math.min(minY.get(), y));
-                    minZ.set(Math.min(minZ.get(), z));
-                    maxX.set(Math.max(maxX.get(), x));
-                    maxY.set(Math.max(maxY.get(), y));
-                    maxZ.set(Math.max(maxZ.get(), z));
-                });
+                for (ChunkUpdates chunkUpdates : updates) {
+                    for (BlockUpdate update : chunkUpdates.updates) {
+                        minX.set(Math.min(minX.get(), update.x - originX));
+                        minY.set(Math.min(minY.get(), update.y - originY));
+                        minZ.set(Math.min(minZ.get(), update.z - originZ));
+                        maxX.set(Math.max(maxX.get(), update.x - originX));
+                        maxY.set(Math.max(maxY.get(), update.y - originY));
+                        maxZ.set(Math.max(maxZ.get(), update.z - originZ));
+                    }
+                }
 
                 dos.writeInt(minX.get());
                 dos.writeInt(minY.get());
@@ -148,9 +165,15 @@ public class Schematic {
                 int[] flatData = new int[totalSize];
                 Arrays.fill(flatData, 0);
 
-                blockMap.forEach((x, y, z, state) -> flatData[((x - minX.get()) * sizeY * sizeZ) + ((y - minY.get()) * sizeZ) + (z - minZ.get())] = state == null ? 0 : indexes.get(state));
+                for (ChunkUpdates chunkUpdates : updates) {
+                    for (BlockUpdate update : chunkUpdates.updates) {
+                        int flatIndex = ((update.x - originX - minX.get()) * sizeY * sizeZ) +
+                                ((update.y - originY - minY.get()) * sizeZ) +
+                                (update.z - originZ - minZ.get());
+                        flatData[flatIndex] = update.state == null ? 0 : indexes.get(update.state);
+                    }
+                }
 
-                // ZRLE-like
                 int i = 0;
                 while (i < totalSize) {
                     int value = flatData[i];
@@ -164,7 +187,6 @@ public class Schematic {
                     dos.writeShort(runLength);
                     i += runLength;
                 }
-
             } catch (IOException e) {
                 throw new UncheckedIOException(e);
             }
@@ -184,6 +206,22 @@ public class Schematic {
 
         Schematic schematic = new Schematic();
         try (DataInputStream dis = new DataInputStream(new BufferedInputStream(new FileInputStream(file)))) {
+            String header;
+            try {
+                header = dis.readUTF();
+            } catch (Exception e) {
+                throw new IOException("Invalid schematic file: " + file.getAbsolutePath());
+            }
+            if (!header.equals(HEADER)) {
+                throw new IOException("Invalid schematic file: " + file.getAbsolutePath());
+            }
+
+            String worldName = dis.readUTF();
+            World world = Bukkit.getWorld(worldName);
+            if (world == null) {
+                throw new IOException("World not found: " + worldName);
+            }
+            schematic.world = world;
             schematic.originX = dis.readInt();
             schematic.originY = dis.readInt();
             schematic.originZ = dis.readInt();
@@ -192,7 +230,7 @@ public class Schematic {
             List<BlockState> states = new ArrayList<>();
             for (int i = 0; i < count; i++) {
                 String serialized = dis.readUTF();
-                BlockState state = ((CraftBlockData) org.bukkit.Bukkit.createBlockData(serialized)).getState();
+                BlockState state = ((CraftBlockData) Bukkit.createBlockData(serialized)).getState();
                 states.add(state);
             }
 
@@ -213,7 +251,7 @@ public class Schematic {
                 i += runLength;
             }
 
-            schematic.blockMap.clear();
+            Map<Long, ChunkUpdates> chunkMap = new HashMap<>();
 
             for (int sx = 0; sx < sizeX; sx++) {
                 for (int sy = 0; sy < sizeY; sy++) {
@@ -222,14 +260,37 @@ public class Schematic {
                         int stateIndex = flatData[index];
                         if (stateIndex == 0) continue;
 
-                        BlockState state = states.get(stateIndex - 1);
-                        schematic.blockMap.put(minX + sx, minY + sy, minZ + sz, state);
+                        int x = minX + sx + schematic.originX;
+                        int y = minY + sy + schematic.originY;
+                        int z = minZ + sz + schematic.originZ;
+                        int chunkX = x >> 4;
+                        int chunkZ = z >> 4;
+                        long chunkKey = Chunk.getChunkKey(chunkX, chunkZ);
+
+                        ChunkUpdates chunkUpdates = chunkMap.computeIfAbsent(chunkKey, k -> new ChunkUpdates(chunkX, chunkZ));
+                        chunkUpdates.updates.add(new BlockUpdate(x, y, z, states.get(stateIndex - 1)));
                     }
                 }
             }
+
+            schematic.updates.addAll(chunkMap.values());
         }
 
+        for (ChunkUpdates chunkUpdates : schematic.updates) {
+            schematic.world.addPluginChunkTicket(chunkUpdates.chunkX, chunkUpdates.chunkZ, NexelArena.instance());
+        }
+
+        schematic.level = new NexelLevel(schematic.world).clearAfterApply(false).updates(schematic.updates);
         cache.put(file, schematic);
         return schematic;
+    }
+
+    /**
+     * The nexel level of the schematic, you can directly use apply blocks on it.
+     *
+     * @return The nexel level of the schematic.
+     */
+    public NexelLevel asLevel() {
+        return level;
     }
 }

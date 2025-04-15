@@ -2,7 +2,6 @@ package net.vansen.nexelarena.commands;
 
 import dev.vansen.commandutils.CommandUtils;
 import dev.vansen.commandutils.argument.CommandArgument;
-import dev.vansen.commandutils.command.CheckType;
 import dev.vansen.commandutils.permission.CommandPermission;
 import dev.vansen.commandutils.subcommand.SubCommand;
 import net.kyori.adventure.text.Component;
@@ -11,6 +10,7 @@ import net.kyori.adventure.text.format.TextColor;
 import net.vansen.nexelarena.NexelArena;
 import net.vansen.nexelarena.corners.PositionManager;
 import net.vansen.nexelarena.corners.entry.PositionEntry;
+import net.vansen.nexelarena.modification.NexelLevel;
 import net.vansen.nexelarena.modification.Schematic;
 
 import java.io.File;
@@ -26,8 +26,7 @@ public class ArenaCommand {
                 .permission(CommandPermission.permission("wellarenas.command"))
                 .subCommand(SubCommand.of("save")
                         .argument(CommandArgument.string("arena")
-                                .defaultExecute(context -> {
-                                    context.check(CheckType.PLAYER);
+                                .playerExecute(context -> {
                                     PositionEntry entry = PositionManager.get(context.playerName());
                                     File file = new File(NexelArena.instance().getDataFolder(), "arenas/" + context.arg("arena", String.class) + ".zea");
 
@@ -46,8 +45,7 @@ public class ArenaCommand {
                                     schematic.saveRegion(context.player(), context.world(), entry.first().orElseThrow(), entry.second().orElseThrow(), file);
                                 })
                                 .subCommand(SubCommand.of("force")
-                                        .defaultExecute(context -> {
-                                            context.check(CheckType.PLAYER);
+                                        .playerExecute(context -> {
                                             PositionEntry entry = PositionManager.get(context.playerName());
 
                                             if (entry.second().isEmpty() || entry.second().isEmpty()) {
@@ -81,8 +79,7 @@ public class ArenaCommand {
                                     return wrapper.build();
                                 })
                                 .defaultExecute(context -> {
-                                    String arena = context.arg("arena", String.class);
-                                    File file = new File(NexelArena.instance().getDataFolder(), "arenas/" + arena + ".zea");
+                                    File file = new File(NexelArena.instance().getDataFolder(), "arenas/" + context.arg("arena", String.class) + ".zea");
 
                                     if (!file.exists()) {
                                         context.response("<#ff577e>Schematic file not found");
@@ -95,14 +92,13 @@ public class ArenaCommand {
                                             Schematic schematic = Schematic.load(file);
                                             context.response("<#8336ff>Schematic loaded");
                                             context.response("<#8336ff>Regenerating from the schematic...");
-                                            schematic.paste(context.world()).thenAccept(nexel -> {
-                                                long start = System.nanoTime();
-                                                nexel.callback(blocks -> {
-                                                    long end = System.nanoTime();
-                                                    context.response("<#8336ff>Schematic pasted, applied " + blocks + " blocks, " + ((end - start) / 1000000) + " ms");
-                                                });
-                                                nexel.applyPendingBlockUpdates();
+                                            long start = System.nanoTime();
+                                            NexelLevel nexel = schematic.asLevel();
+                                            nexel.callback(blocks -> {
+                                                long end = System.nanoTime();
+                                                context.response("<#8336ff>Schematic pasted, applied " + blocks + " blocks, " + ((end - start) / 1000000) + " ms");
                                             });
+                                            nexel.applyPendingBlockUpdates();
                                         } catch (IOException e) {
                                             context.response("<#ff577e>Failed to regenerate!");
                                             NexelArena.instance()
@@ -113,15 +109,13 @@ public class ArenaCommand {
                                 })))
                 .subCommand(SubCommand.of("pos")
                         .subCommand(SubCommand.of("1")
-                                .defaultExecute(context -> {
-                                    context.check(CheckType.PLAYER);
+                                .playerExecute(context -> {
                                     PositionEntry entry = PositionManager.get(context.playerName());
                                     PositionManager.set(context.playerName(), context.player().getLocation(), entry.second().orElse(null));
                                     context.response("<#8336ff>Position 1 is set!");
                                 }))
                         .subCommand(SubCommand.of("2")
-                                .defaultExecute(context -> {
-                                    context.check(CheckType.PLAYER);
+                                .playerExecute(context -> {
                                     PositionEntry entry = PositionManager.get(context.playerName());
                                     PositionManager.set(context.playerName(), entry.first().orElse(null), context.player().getLocation());
                                     context.response("<#8336ff>Position 2 is set!");

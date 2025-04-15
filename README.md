@@ -1,8 +1,6 @@
 # NexelArena
 
-**NexelArena** is an **very fast**, fully **asynchronous arena regenerator**.
-
-> ⚠ **Heavily Experimental** — This project is heavily experimental, and as of now, the memory consumption is alot (around 1 gb for 10 million blocks,) and, is not living up to expectations (such as being 2x slower than FAWE).
+**NexelArena** is an **INSANELY fast**, fully **asynchronous arena regenerator**.
 
 > ⚠ **PaperMC ONLY** — This will **NOT** work on Spigot or non-Paper forks!
 
@@ -11,22 +9,22 @@
 ## 🚀 Features
 
 - **Blazing Fast Performance**:
-    - We're not kidding. It's fast.
+    - 10 million blocks in around **400 milliseconds**.
 
 - **Zero Dependencies**:
     - No WorldEdit.
     - No FAWE.
-    - Nothing else. Just drop it in.
+    - Just drop it in.
 
-- **Async Pasting**:
-    - **Fully** asynchronous schematic pasting.
-    - No lag, even during large arena resets.
+- **Async Pasting & Saving**:
+    - **Fully** asynchronous schematic pasting and saving.
+    - No lag, even during large arena resets/saves.
 
 ---
 
 ## 📦 Installation
 
-1. Compile the NexelArena plugin (Plugin will be published soon.)
+1. Download the NexelArena plugin.
 2. Drop it into your server's `/plugins/` folder.
 3. Restart your server (you can reload as well, though not really recommended).
 
