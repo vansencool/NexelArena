@@ -41,7 +41,7 @@ processResources {
     def props = [version: version]
     inputs.properties props
     filteringCharset 'UTF-8'
-    filesMatching('paper-plugin.yml') {
+    filesMatching(List.of('paper-plugin.yml', "config.conf")) {
         expand props
     }
 }
@@ -55,6 +55,6 @@ shadowJar {
     minimize()
 }
 
-tasks.build {
+build {
     dependsOn shadowJar
 }

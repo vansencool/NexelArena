@@ -1,5 +1,6 @@
 package net.vansen.nexelarena.modification;
 
+import net.vansen.nexelarena.config.Variables;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.File;
@@ -24,6 +25,7 @@ public class SchematicCache {
      * @return The schematic, or null if not found.
      */
     public Schematic get(@NotNull File file) {
+        if (!Variables.ENABLE_SCHEMATIC_CACHE) return null;
         return cache.get(file.getAbsolutePath());
     }
 
@@ -34,6 +36,7 @@ public class SchematicCache {
      * @param schematic The schematic to put in the cache.
      */
     public void put(@NotNull File file, @NotNull Schematic schematic) {
+        if (!Variables.ENABLE_SCHEMATIC_CACHE) return;
         cache.put(file.getAbsolutePath(), schematic);
     }
 

@@ -6,6 +6,7 @@ public class Variables {
      * General
      */
     public static boolean ENABLE_LOG_FILTER = true;
+    public static boolean ENABLE_SCHEMATIC_CACHE = true;
 
     /**
      * Performance
