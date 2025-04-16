@@ -2,6 +2,7 @@ package net.vansen.nexelarena.modification;
 
 import net.minecraft.world.level.block.state.BlockState;
 import net.vansen.nexelarena.NexelArena;
+import net.vansen.nexelarena.config.Variables;
 import net.vansen.nexelarena.modification.update.BlockUpdate;
 import net.vansen.nexelarena.modification.update.ChunkUpdates;
 import org.bukkit.Bukkit;
@@ -81,7 +82,7 @@ public class Schematic {
                 long end2 = System.nanoTime();
                 player.sendRichMessage("<#8336ff>Done saving schematic (took: " + (end2 - start2) / 1000000 + " ms), (found total: " + updates.stream().mapToInt(u -> u.updates.size()).sum() + ")");
             });
-            this.level = new NexelLevel(world).clearAfterApply(false).updates(updates);
+            this.level = new NexelLevel(world).clearAfterApply(!Variables.ENABLE_SCHEMATIC_CACHE).updates(updates);
         });
     }
 
@@ -253,35 +254,51 @@ public class Schematic {
 
             Map<Long, ChunkUpdates> chunkMap = new HashMap<>();
 
-            for (int sx = 0; sx < sizeX; sx++) {
-                for (int sy = 0; sy < sizeY; sy++) {
-                    for (int sz = 0; sz < sizeZ; sz++) {
-                        int index = (sx * sizeY * sizeZ) + (sy * sizeZ) + sz;
-                        int stateIndex = flatData[index];
-                        if (stateIndex == 0) continue;
+            int minChunkX = (minX + schematic.originX) >> 4;
+            int maxChunkX = (maxX + schematic.originX) >> 4;
+            int minChunkZ = (minZ + schematic.originZ) >> 4;
+            int maxChunkZ = (maxZ + schematic.originZ) >> 4;
 
-                        int x = minX + sx + schematic.originX;
-                        int y = minY + sy + schematic.originY;
-                        int z = minZ + sz + schematic.originZ;
-                        int chunkX = x >> 4;
-                        int chunkZ = z >> 4;
-                        long chunkKey = Chunk.getChunkKey(chunkX, chunkZ);
+            for (int chunkX = minChunkX; chunkX <= maxChunkX; chunkX++) {
+                for (int chunkZ = minChunkZ; chunkZ <= maxChunkZ; chunkZ++) {
+                    ChunkUpdates chunkUpdates = new ChunkUpdates(chunkX, chunkZ);
 
-                        ChunkUpdates chunkUpdates = chunkMap.computeIfAbsent(chunkKey, k -> new ChunkUpdates(chunkX, chunkZ));
-                        chunkUpdates.updates.add(new BlockUpdate(x, y, z, states.get(stateIndex - 1)));
+                    int startX = Math.max(minX + schematic.originX, chunkX << 4);
+                    int endX = Math.min(maxX + schematic.originX, (chunkX << 4) + 15);
+                    int startZ = Math.max(minZ + schematic.originZ, chunkZ << 4);
+                    int endZ = Math.min(maxZ + schematic.originZ, (chunkZ << 4) + 15);
+
+                    for (int x = startX; x <= endX; x++) {
+                        for (int y = minY + schematic.originY; y <= maxY + schematic.originY; y++) {
+                            for (int z = startZ; z <= endZ; z++) {
+                                int relX = x - (minX + schematic.originX);
+                                int relY = y - (minY + schematic.originY);
+                                int relZ = z - (minZ + schematic.originZ);
+
+                                int index = (relX * sizeY * sizeZ) + (relY * sizeZ) + relZ;
+                                int stateIndex = flatData[index];
+
+                                if (stateIndex != 0) {
+                                    chunkUpdates.updates.add(new BlockUpdate(x, y, z, states.get(stateIndex - 1)));
+                                }
+                            }
+                        }
+                    }
+
+                    if (!chunkUpdates.updates.isEmpty()) {
+                        schematic.updates.add(chunkUpdates);
                     }
                 }
             }
 
-            schematic.updates.addAll(chunkMap.values());
+            for (ChunkUpdates chunkUpdates : schematic.updates) {
+                schematic.world.addPluginChunkTicket(chunkUpdates.chunkX, chunkUpdates.chunkZ, NexelArena.instance());
+            }
+
+            schematic.level = new NexelLevel(schematic.world).clearAfterApply(!Variables.ENABLE_SCHEMATIC_CACHE).updates(schematic.updates);
+            cache.put(file, schematic);
         }
 
-        for (ChunkUpdates chunkUpdates : schematic.updates) {
-            schematic.world.addPluginChunkTicket(chunkUpdates.chunkX, chunkUpdates.chunkZ, NexelArena.instance());
-        }
-
-        schematic.level = new NexelLevel(schematic.world).clearAfterApply(false).updates(schematic.updates);
-        cache.put(file, schematic);
         return schematic;
     }
 
@@ -292,5 +309,14 @@ public class Schematic {
      */
     public NexelLevel asLevel() {
         return level;
+    }
+
+    /**
+     * The cache of schematics.
+     *
+     * @return The schematic cache.
+     */
+    public static SchematicCache cache() {
+        return cache;
     }
 }
