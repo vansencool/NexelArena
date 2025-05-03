@@ -1,8 +1,10 @@
-package net.vansen.nexelarena.modification;
+package net.vansen.nexelarena.schematic;
 
 import net.minecraft.world.level.block.state.BlockState;
 import net.vansen.nexelarena.NexelArena;
 import net.vansen.nexelarena.config.Variables;
+import net.vansen.nexelarena.modification.NexelLevel;
+import net.vansen.nexelarena.schematic.cache.SchematicCache;
 import net.vansen.nexelarena.modification.update.BlockUpdate;
 import net.vansen.nexelarena.modification.update.ChunkUpdates;
 import org.bukkit.Bukkit;

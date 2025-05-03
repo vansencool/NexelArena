@@ -6,6 +6,7 @@ import net.vansen.nexelarena.NexelArena;
 import net.vansen.nexelarena.config.Variables;
 import net.vansen.nexelarena.modification.update.BlockUpdate;
 import net.vansen.nexelarena.modification.update.ChunkUpdates;
+import net.vansen.nexelarena.schematic.Schematic;
 import org.bukkit.Bukkit;
 import org.bukkit.World;
 import org.bukkit.craftbukkit.CraftWorld;

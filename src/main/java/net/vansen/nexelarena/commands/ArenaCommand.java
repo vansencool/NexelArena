@@ -11,7 +11,7 @@ import net.vansen.nexelarena.NexelArena;
 import net.vansen.nexelarena.corners.PositionManager;
 import net.vansen.nexelarena.corners.entry.PositionEntry;
 import net.vansen.nexelarena.modification.NexelLevel;
-import net.vansen.nexelarena.modification.Schematic;
+import net.vansen.nexelarena.schematic.Schematic;
 
 import java.io.File;
 import java.io.IOException;

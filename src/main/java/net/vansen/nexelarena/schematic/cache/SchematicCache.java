@@ -1,6 +1,7 @@
-package net.vansen.nexelarena.modification;
+package net.vansen.nexelarena.schematic.cache;
 
 import net.vansen.nexelarena.config.Variables;
+import net.vansen.nexelarena.schematic.Schematic;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.File;
