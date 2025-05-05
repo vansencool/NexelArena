@@ -12,6 +12,7 @@ import net.vansen.nexelarena.corners.PositionManager;
 import net.vansen.nexelarena.corners.entry.PositionEntry;
 import net.vansen.nexelarena.modification.NexelLevel;
 import net.vansen.nexelarena.schematic.Schematic;
+import net.vansen.nexelarena.utils.NumberFormatter;
 
 import java.io.File;
 import java.io.IOException;
@@ -88,6 +89,7 @@ public class ArenaCommand {
 
                                     CompletableFuture.runAsync(() -> {
                                         try {
+                                            context.response("");
                                             context.response("<#8336ff>Loading schematic...");
                                             long startSche = System.nanoTime();
                                             Schematic schematic = Schematic.load(file);
@@ -98,7 +100,9 @@ public class ArenaCommand {
                                             NexelLevel nexel = schematic.asLevel();
                                             nexel.callback(blocks -> {
                                                 long end = System.nanoTime();
-                                                context.response("<#8336ff>Schematic pasted, applied " + blocks + " blocks, " + ((end - start) / 1000000) + " ms");
+                                                context.response("");
+                                                context.response("<#8336ff>Schematic pasted, applied " + NumberFormatter.format(blocks) + " blocks, " + ((end - start) / 1000000) + " ms");
+                                                context.response("");
                                             });
                                             nexel.applyPendingBlockUpdates();
                                         } catch (IOException e) {

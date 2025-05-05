@@ -7,6 +7,7 @@ import dev.vansen.commandutils.permission.CommandPermission;
 import net.vansen.nexelarena.NexelArena;
 import net.vansen.nexelarena.modification.NexelLevel;
 import net.vansen.nexelarena.modification.update.utility.RegionUtils;
+import net.vansen.nexelarena.utils.NumberFormatter;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
@@ -52,7 +53,7 @@ public class BenchmarkBlocksCommand {
             Material material = Material.STONE;
 
             int totalBlocks = width * height * width;
-            context.response("<#c2d8ff>Running benchmark... " + formatNumber(totalBlocks) + " blocks per method, " + runs + " runs each");
+            context.response("<#c2d8ff>Running benchmark... " + NumberFormatter.format(totalBlocks) + " blocks per method, " + runs + " runs each");
 
             CompletableFuture<Void> benchmarkFuture = CompletableFuture.completedFuture(null);
 
@@ -84,16 +85,6 @@ public class BenchmarkBlocksCommand {
             });
         } catch (IllegalArgumentException e) {
             context.response("Invalid benchmark type. Use 'bukkit', 'nexel_arena', or 'both'.");
-        }
-    }
-
-    private static String formatNumber(int number) {
-        if (number >= 1_000_000) {
-            return String.format("%.0f million", number / 1_000_000.0);
-        } else if (number >= 1_000) {
-            return String.format("%.0f thousand", number / 1_000.0);
-        } else {
-            return String.valueOf(number);
         }
     }
 

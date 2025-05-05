@@ -7,6 +7,7 @@ import net.vansen.nexelarena.modification.NexelLevel;
 import net.vansen.nexelarena.schematic.cache.SchematicCache;
 import net.vansen.nexelarena.modification.update.BlockUpdate;
 import net.vansen.nexelarena.modification.update.ChunkUpdates;
+import net.vansen.nexelarena.utils.NumberFormatter;
 import org.bukkit.Bukkit;
 import org.bukkit.Chunk;
 import org.bukkit.Location;
@@ -78,11 +79,12 @@ public class Schematic {
             }
 
             long end = System.nanoTime();
-            player.sendRichMessage("<#8336ff>Done getting blocks (took: " + (end - start) / 1000000 + " ms), (found total: " + updates.stream().mapToInt(u -> u.updates.size()).sum() + "), now saving...");
+            player.sendRichMessage("<#8336ff>Done getting blocks (took: " + (end - start) / 1000000 + " ms, total: " + NumberFormatter.format(updates.stream().mapToInt(u -> u.updates.size()).sum()) + "), now saving...");
             long start2 = System.nanoTime();
             save(file).thenRun(() -> {
                 long end2 = System.nanoTime();
-                player.sendRichMessage("<#8336ff>Done saving schematic (took: " + (end2 - start2) / 1000000 + " ms), (found total: " + updates.stream().mapToInt(u -> u.updates.size()).sum() + ")");
+                player.sendRichMessage("");
+                player.sendRichMessage("<#8336ff>Done saving schematic (took: " + (end2 - start2) / 1000000 + " ms)");
             });
             this.level = new NexelLevel(world).clearAfterApply(!Variables.ENABLE_SCHEMATIC_CACHE).updates(updates);
         });
