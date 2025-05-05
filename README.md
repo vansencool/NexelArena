@@ -42,7 +42,7 @@
 
 > **Note**: While this may look like it takes "a lot" of time, the reality is that it **does NOT** lag your server at all. Even when setting **50 million blocks**, the **maximum MSPT increase** is only around **0.2** (since it runs asynchronously).
 >
-> Benchmarks were performed on a **Ryzen 7 3700X**, using the **[Leaf](https://github.com/Winds-Studio/Leaf) 1.21.3**, actual results may vary based on your hardware.
+> Benchmarks were performed on a **Ryzen 7 3700X**, using **[Leaf](https://github.com/Winds-Studio/Leaf) 1.21.3**, actual results may vary based on your hardware.
 ---
 
 ## Usage
