@@ -3,6 +3,8 @@ package net.vansen.nexelarena;
 import dev.vansen.commandutils.api.CommandAPI;
 import net.vansen.fursconfig.FursConfig;
 import net.vansen.nexelarena.commands.ArenaCommand;
+import net.vansen.nexelarena.commands.benchmark.BenchmarkBlocksCommand;
+import net.vansen.nexelarena.config.Variables;
 import net.vansen.nexelarena.config.process.ConfigurationProcessor;
 import net.vansen.nexelarena.logging.LogFilter;
 import org.bukkit.Bukkit;
@@ -29,6 +31,7 @@ public final class NexelArena extends JavaPlugin {
         }
         ConfigurationProcessor.process(FursConfig.createAndParseFile(getDataFolder().toPath().resolve("config.conf")));
         ArenaCommand.register();
+        if (Variables.ENABLE_BENCHMARK_BLOCKS_COMMAND) BenchmarkBlocksCommand.register();
         LogFilter.register();
     }
 

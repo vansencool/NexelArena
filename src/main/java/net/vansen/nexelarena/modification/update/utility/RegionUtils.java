@@ -116,6 +116,8 @@ public class RegionUtils {
 
     /**
      * Creates a list of BlockUpdate instances for a region, setting all blocks to a specific state.
+     * <p>
+     * It is important to note if the region is more than one chunk, IT WILL NOT WORK PROPERLY WHEN USED IN NEXEL LEVEL!!
      *
      * @param start    The starting location of the region.
      * @param end      The ending location of the region.
@@ -149,5 +151,46 @@ public class RegionUtils {
             }
         }
         return updates;
+    }
+
+    /**
+     * Creates a list of ChunkUpdates for a region, setting all blocks to a specific state.
+     *
+     * @param start    The starting location of the region.
+     * @param end      The ending location of the region.
+     * @param newState The new block state to set for all blocks in the region.
+     * @return A list of ChunkUpdates instances representing the region with the new state.
+     */
+    public static List<ChunkUpdates> setChunkState(@NotNull Location start, @NotNull Location end, @NotNull org.bukkit.block.BlockState newState) {
+        World world = start.getWorld();
+        List<ChunkUpdates> chunkUpdatesList = new ArrayList<>();
+
+        int minX = Math.min(start.getBlockX(), end.getBlockX());
+        int minY = Math.min(start.getBlockY(), end.getBlockY());
+        int minZ = Math.min(start.getBlockZ(), end.getBlockZ());
+        int maxX = Math.max(start.getBlockX(), end.getBlockX());
+        int maxY = Math.max(start.getBlockY(), end.getBlockY());
+        int maxZ = Math.max(start.getBlockZ(), end.getBlockZ());
+
+        int chunkMinX = minX >> 4;
+        int chunkMaxX = maxX >> 4;
+        int chunkMinZ = minZ >> 4;
+        int chunkMaxZ = maxZ >> 4;
+
+        for (int chunkX = chunkMinX; chunkX <= chunkMaxX; chunkX++) {
+            for (int chunkZ = chunkMinZ; chunkZ <= chunkMaxZ; chunkZ++) {
+                ChunkUpdates chunkUpdates = new ChunkUpdates(chunkX, chunkZ);
+
+                for (int x = Math.max(minX, chunkX << 4); x <= Math.min(maxX, (chunkX << 4) + 15); x++) {
+                    for (int y = minY; y <= maxY; y++) {
+                        for (int z = Math.max(minZ, chunkZ << 4); z <= Math.min(maxZ, (chunkZ << 4) + 15); z++) {
+                            chunkUpdates.updates.add(new BlockUpdate(x, y, z, ((CraftBlockState) newState).getHandle()));
+                        }
+                    }
+                }
+                chunkUpdatesList.add(chunkUpdates);
+            }
+        }
+        return chunkUpdatesList;
     }
 }

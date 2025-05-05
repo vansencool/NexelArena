@@ -293,8 +293,10 @@ public class Schematic {
                 }
             }
 
-            for (ChunkUpdates chunkUpdates : schematic.updates) {
-                schematic.world.addPluginChunkTicket(chunkUpdates.chunkX, chunkUpdates.chunkZ, NexelArena.instance());
+            if (Variables.ADD_CHUNKS_TO_FORCE_LOAD) {
+                for (ChunkUpdates chunkUpdates : schematic.updates) {
+                    schematic.world.addPluginChunkTicket(chunkUpdates.chunkX, chunkUpdates.chunkZ, NexelArena.instance());
+                }
             }
 
             schematic.level = new NexelLevel(schematic.world).clearAfterApply(!Variables.ENABLE_SCHEMATIC_CACHE).updates(schematic.updates);

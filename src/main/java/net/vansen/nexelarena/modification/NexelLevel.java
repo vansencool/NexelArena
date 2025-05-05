@@ -6,7 +6,6 @@ import net.vansen.nexelarena.NexelArena;
 import net.vansen.nexelarena.config.Variables;
 import net.vansen.nexelarena.modification.update.BlockUpdate;
 import net.vansen.nexelarena.modification.update.ChunkUpdates;
-import net.vansen.nexelarena.schematic.Schematic;
 import org.bukkit.Bukkit;
 import org.bukkit.World;
 import org.bukkit.craftbukkit.CraftWorld;
@@ -27,8 +26,10 @@ public class NexelLevel {
     private Consumer<Integer> callback = ignored -> {
         // do nothing
     };
+    private Consumer<Integer> blockCallback = ignored -> {
+        // do nothing
+    };
     private final World world;
-    private Schematic schematic;
     private boolean clearAfterApply = true;
     private final Object lock = new Object();
     private final int maxHeight;
@@ -64,6 +65,7 @@ public class NexelLevel {
         CompletableFuture.runAsync(() -> {
             synchronized (lock) {
                 for (ChunkUpdates chunkUpdates : updates) {
+                    if (Variables.ADD_CHUNKS_TO_FORCE_LOAD) world.addPluginChunkTicket(chunkUpdates.chunkX, chunkUpdates.chunkZ, NexelArena.instance());
                     ChunkAccess chunk = ((CraftWorld) world).getHandle().getChunk(chunkUpdates.chunkX, chunkUpdates.chunkZ);
                     for (BlockUpdate update : chunkUpdates.updates) {
                         int y = update.y;
@@ -80,6 +82,7 @@ public class NexelLevel {
                     }
                 }
 
+                blockCallback.accept(totalUpdates);
                 if (Variables.REFRESH_CHUNKS_ASYNC) afterwards(totalUpdates);
                 else
                     CompletableFuture.runAsync(() -> afterwards(totalUpdates), Bukkit.getScheduler().getMainThreadExecutor(NexelArena.instance()));
@@ -117,14 +120,27 @@ public class NexelLevel {
     }
 
     /**
-     * Sets a callback to be called when the block updates are applied.
+     * Sets a callback to be called after refreshing chunks.
      * <p>
      * Note, this callback might be called on a different thread, or the main thread, depending on the config.
      *
      * @param callback The callback to be called when the block updates are applied.
      */
-    public void callback(@NotNull Consumer<Integer> callback) {
+    @SuppressWarnings("all")
+    public NexelLevel callback(@NotNull Consumer<Integer> callback) {
         this.callback = callback;
+        return this;
+    }
+
+    /**
+     * Calls the callback when all block updates are applied.
+     *
+     * @param callback The callback to be called for each block update.
+     */
+    @SuppressWarnings("all")
+    public NexelLevel blockCallback(@NotNull Consumer<Integer> callback) {
+        this.blockCallback = callback;
+        return this;
     }
 
     /**

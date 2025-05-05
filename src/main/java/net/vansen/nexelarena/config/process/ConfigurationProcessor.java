@@ -33,8 +33,8 @@ public class ConfigurationProcessor {
         if (!config.getString("version").equals(NexelArena.instance().getPluginMeta().getVersion())) {
             try {
                 Logger logger = NexelArena.instance().getSLF4JLogger();
-                logger.info("Configuration version seems to be outdated!");
-                logger.info("For now, we are creating a copy of the config file.");
+                logger.warn("Configuration version seems to be outdated!");
+                logger.warn("For now, we are creating a copy of the config file.");
 
                 Files.createDirectories(Path.of(NexelArena.instance().getDataFolder().getPath(), "copies"));
                 int copy = 1;
@@ -43,7 +43,7 @@ public class ConfigurationProcessor {
                 }
                 Path configPath = NexelArena.instance().getDataFolder().toPath().resolve("config.conf");
                 Files.copy(configPath, Path.of(NexelArena.instance().getDataFolder().getPath(), "copies/config copy " + copy + ".conf"));
-                logger.info("Created a copy of the config file: config copy {}.conf", copy);
+                logger.warn("Created a copy of the config file: config copy {}.conf", copy);
                 NexelArena.instance()
                         .saveResource("config.conf", true);
                 config = FursConfig.createAndParseFile(configPath);

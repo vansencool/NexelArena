@@ -13,4 +13,10 @@ public class Variables {
      */
     public static boolean ADD_CHUNKS_TO_FORCE_LOAD = true;
     public static boolean REFRESH_CHUNKS_ASYNC = false;
+
+    /**
+     * Developer
+     */
+    public static boolean ENABLE_BENCHMARK_COMMAND = false;
+    public static boolean ENABLE_BENCHMARK_BLOCKS_COMMAND = false;
 }
