@@ -47,44 +47,39 @@ public class BenchmarkBlocksCommand {
 
         try {
             WhatToBenchmark benchmark = WhatToBenchmark.valueOf(whatToBenchmark);
-            if (benchmark == WhatToBenchmark.BUKKIT || benchmark == WhatToBenchmark.BOTH) {
-                context.response("Running Bukkit Set...");
-            }
-            if (benchmark == WhatToBenchmark.NEXEL_ARENA || benchmark == WhatToBenchmark.BOTH) {
-                context.response("Running NexelArena Set...");
-            }
-
             Location origin = context.location();
             World world = origin.getWorld();
             Material material = Material.STONE;
 
             int totalBlocks = width * height * width;
-            context.response("Running benchmark... " + formatNumber(totalBlocks) + " blocks per method, " + runs + " runs each");
+            context.response("<#c2d8ff>Running benchmark... " + formatNumber(totalBlocks) + " blocks per method, " + runs + " runs each");
 
             CompletableFuture<Void> benchmarkFuture = CompletableFuture.completedFuture(null);
 
             if (benchmark == WhatToBenchmark.BUKKIT || benchmark == WhatToBenchmark.BOTH) {
                 benchmarkFuture = CompletableFuture.runAsync(() -> {
-                    context.response("Bukkit Set started...");
+                    context.response("");
+                    context.response("<#c2d8ff>Bukkit Set started...");
                     long defaultTime = benchmark(context, () -> runBukkitSet(world, origin, width, height, width, material), runs, world, origin, width, height, width, delay);
-                    context.response("Bukkit Set complete!");
-                    context.response("Bukkit Set: " + formatResults(defaultTime, totalBlocks));
+                    context.response("<#c2d8ff>Bukkit Set complete!");
+                    context.response("<#c2d8ff>Bukkit Set: " + formatResults(defaultTime, totalBlocks));
                 });
             }
 
             if (benchmark == WhatToBenchmark.NEXEL_ARENA || benchmark == WhatToBenchmark.BOTH) {
                 benchmarkFuture = benchmarkFuture.thenRunAsync(() -> {
-                    context.response("NexelArena Set started...");
+                    context.response("");
+                    context.response("<#c2d8ff>NexelArena Set started...");
                     long nexelTime = benchmark(context, () -> nexelArena(world, origin, width, height, width), runs, world, origin, width, height, width, delay);
-                    context.response("NexelArena Set complete!");
-                    context.response("NexelArena Set: " + formatResults(nexelTime, totalBlocks));
+                    context.response("<#c2d8ff>NexelArena Set complete!");
+                    context.response("<#c2d8ff>NexelArena Set Results: " + formatResults(nexelTime, totalBlocks));
                 });
             }
 
             // TODO: add tick based benchmarking
 
             benchmarkFuture.exceptionally(ex -> {
-                context.response("An error occurred during benchmarking: " + ex.getMessage());
+                context.response("<#ff5286>An error occurred during benchmarking: " + ex.getMessage());
                 return null;
             });
         } catch (IllegalArgumentException e) {
@@ -94,9 +89,9 @@ public class BenchmarkBlocksCommand {
 
     private static String formatNumber(int number) {
         if (number >= 1_000_000) {
-            return String.format("%.1f million", number / 1_000_000.0);
+            return String.format("%.0f million", number / 1_000_000.0);
         } else if (number >= 1_000) {
-            return String.format("%.1f thousand", number / 1_000.0);
+            return String.format("%.0f thousand", number / 1_000.0);
         } else {
             return String.valueOf(number);
         }
@@ -104,11 +99,12 @@ public class BenchmarkBlocksCommand {
 
     private static long benchmark(CommandWrapper context, Runnable method, int runs, World world, Location origin, int width, int height, int depth, int delay) {
         long totalTime = 0;
+        context.response("");
         for (int i = 0; i < runs; i++) {
             long start = System.nanoTime();
             method.run();
             long end = System.nanoTime();
-            context.response("Run " + (i + 1) + ": " + formatResults(end - start, width * height * depth));
+            context.response("<#c2d8ff>Run " + (i + 1) + ": " + formatResults(end - start, width * height * depth));
             totalTime += (end - start);
             try {
                 TimeUnit.SECONDS.sleep(delay);
@@ -122,6 +118,7 @@ public class BenchmarkBlocksCommand {
                 Thread.currentThread().interrupt();
             }
         }
+        context.response("");
         return totalTime / runs;
     }
 
