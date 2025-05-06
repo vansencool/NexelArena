@@ -42,6 +42,27 @@ public class SchematicCache {
     }
 
     /**
+     * Checks if the cache contains a schematic.
+     *
+     * @param file The file to check.
+     * @return True if the cache contains the schematic, false otherwise.
+     */
+    public boolean contains(@NotNull File file) {
+        if (!Variables.ENABLE_SCHEMATIC_CACHE) return false;
+        return cache.containsKey(file.getAbsolutePath());
+    }
+
+    /**
+     * Removes a schematic from the cache.
+     *
+     * @param file The file to remove.
+     */
+    public void remove(@NotNull File file) {
+        if (!Variables.ENABLE_SCHEMATIC_CACHE) return;
+        cache.remove(file.getAbsolutePath());
+    }
+
+    /**
      * Clears the cache.
      */
     public void clear() {

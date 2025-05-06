@@ -97,7 +97,7 @@ public class ArenaCommand {
                                             context.response("<#8336ff>Schematic loaded, " + ((endSche - startSche) / 1000000) + " ms");
                                             context.response("<#8336ff>Regenerating from the schematic...");
                                             long start = System.nanoTime();
-                                            NexelLevel nexel = schematic.paste().join();
+                                            NexelLevel nexel = schematic.asLevel();
                                             nexel.blockCallback(blocks -> {
                                                 long end = System.nanoTime();
                                                 context.response("");
@@ -125,6 +125,40 @@ public class ArenaCommand {
                                     PositionEntry entry = PositionManager.get(context.playerName());
                                     PositionManager.set(context.playerName(), entry.first().orElse(null), context.player().getLocation());
                                     context.response("<#8336ff>Position 2 is set!");
+                                })))
+                .subCommand(SubCommand.of("remove")
+                        .argument(CommandArgument.string("arena")
+                                .completion((context, wrapper) -> {
+                                    File[] files = NexelArena.instance()
+                                            .getDataFolder()
+                                            .toPath()
+                                            .resolve("arenas")
+                                            .toFile()
+                                            .listFiles();
+                                    if (files == null) {
+                                        return wrapper.build();
+                                    }
+                                    Arrays.stream(files)
+                                            .filter(file -> file != null && file.isFile())
+                                            .filter(file -> file.getName().endsWith(".zea"))
+                                            .map(file -> file.getName().replace(".zea", ""))
+                                            .filter(file -> file.toLowerCase().startsWith(wrapper.builder().getRemainingLowerCase()))
+                                            .forEach(wrapper::suggest);
+                                    return wrapper.build();
+                                })
+                                .defaultExecute(context -> {
+                                    File file = new File(NexelArena.instance().getDataFolder(), "arenas/" + context.arg("arena", String.class) + ".zea");
+
+                                    if (!file.exists()) {
+                                        context.response("<#ff577e>Schematic file not found");
+                                        return;
+                                    }
+
+                                    if (file.delete()) {
+                                        context.response("<#8336ff>File deleted!");
+                                    } else {
+                                        context.response("<#ff577e>Failed to delete file!");
+                                    }
                                 })))
                 .subCommand(SubCommand.of("cache")
                         .subCommand(SubCommand.of("clear")
@@ -169,7 +203,38 @@ public class ArenaCommand {
                                             } catch (IOException e) {
                                                 throw new RuntimeException(e);
                                             }
-                                        }))))
+                                        }))
+                                .subCommand(SubCommand.of("remove")
+                                        .argument(CommandArgument.string("arena")
+                                                .completion((context, wrapper) -> {
+                                                    File[] files = NexelArena.instance()
+                                                            .getDataFolder()
+                                                            .toPath()
+                                                            .resolve("arenas")
+                                                            .toFile()
+                                                            .listFiles();
+                                                    if (files == null) {
+                                                        return wrapper.build();
+                                                    }
+                                                    Arrays.stream(files)
+                                                            .filter(file -> file != null && file.isFile())
+                                                            .filter(file -> file.getName().endsWith(".zea"))
+                                                            .map(file -> file.getName().replace(".zea", ""))
+                                                            .filter(file -> file.toLowerCase().startsWith(wrapper.builder().getRemainingLowerCase()))
+                                                            .forEach(wrapper::suggest);
+                                                    return wrapper.build();
+                                                })
+                                                .defaultExecute(context -> {
+                                                    File file = new File(NexelArena.instance().getDataFolder(), "arenas/" + context.arg("arena", String.class) + ".zea");
+
+                                                    if (!file.exists()) {
+                                                        context.response("<#ff577e>Schematic file not found");
+                                                        return;
+                                                    }
+
+                                                    Schematic.cache().remove(file);
+                                                    context.response("<#8336ff>Removed schematic from cache");
+                                                })))))
                 .register();
         init();
     }

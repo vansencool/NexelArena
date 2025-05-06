@@ -71,10 +71,13 @@ public class NexelLevel {
                         world.addPluginChunkTicket(chunkUpdates.chunkX, chunkUpdates.chunkZ, NexelArena.instance());
                     ChunkAccess chunk = ((CraftWorld) world).getHandle().getChunk(chunkUpdates.chunkX, chunkUpdates.chunkZ);
                     for (SectionUpdate sectionUpdate : chunkUpdates.getSectionUpdates()) {
-                        if (sectionUpdate.sectionIndex < 0) {
+                        int sectionIndex = sectionUpdate.sectionIndex;
+                        if (sectionIndex < 0) {
+                            NexelArena.instance()
+                                    .getSLF4JLogger()
+                                    .warn("Section index is negative: {} - in chunk: {}, {} - please report this at https://github.com/vansencool/NexelArena", sectionUpdate.sectionIndex, chunkUpdates.chunkX, chunkUpdates.chunkZ);
                             continue;
                         }
-                        int sectionIndex = sectionUpdate.sectionIndex;
 
                         if (sectionIndex * 16 > maxHeight) {
                             warnHeight("max", maxHeight, sectionIndex * 16, chunkUpdates);
