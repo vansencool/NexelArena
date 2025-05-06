@@ -2,10 +2,12 @@ package net.vansen.nexelarena.modification;
 
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.chunk.ChunkAccess;
+import net.minecraft.world.level.chunk.LevelChunkSection;
 import net.vansen.nexelarena.NexelArena;
 import net.vansen.nexelarena.config.Variables;
 import net.vansen.nexelarena.modification.update.BlockUpdate;
 import net.vansen.nexelarena.modification.update.ChunkUpdates;
+import net.vansen.nexelarena.modification.update.SectionUpdate;
 import org.bukkit.Bukkit;
 import org.bukkit.World;
 import org.bukkit.craftbukkit.CraftWorld;
@@ -55,7 +57,7 @@ public class NexelLevel {
     public int applyPendingBlockUpdates() {
         int total = 0;
         for (ChunkUpdates chunkUpdates : updates) {
-            total += chunkUpdates.updates.size();
+            total += chunkUpdates.getBlockUpdateCount();
         }
         final int totalUpdates = total;
         if (totalUpdates == 0) {
@@ -65,20 +67,30 @@ public class NexelLevel {
         CompletableFuture.runAsync(() -> {
             synchronized (lock) {
                 for (ChunkUpdates chunkUpdates : updates) {
-                    if (Variables.ADD_CHUNKS_TO_FORCE_LOAD) world.addPluginChunkTicket(chunkUpdates.chunkX, chunkUpdates.chunkZ, NexelArena.instance());
+                    if (Variables.ADD_CHUNKS_TO_FORCE_LOAD)
+                        world.addPluginChunkTicket(chunkUpdates.chunkX, chunkUpdates.chunkZ, NexelArena.instance());
                     ChunkAccess chunk = ((CraftWorld) world).getHandle().getChunk(chunkUpdates.chunkX, chunkUpdates.chunkZ);
-                    for (BlockUpdate update : chunkUpdates.updates) {
-                        int y = update.y;
-                        if (y > maxHeight) {
-                            warnHeight("max", maxHeight, y, chunkUpdates);
-                            return;
+                    for (SectionUpdate sectionUpdate : chunkUpdates.getSectionUpdates()) {
+                        if (sectionUpdate.sectionIndex < 0) {
+                            continue;
                         }
-                        if (y < minHeight) {
-                            warnHeight("min", minHeight, y, chunkUpdates);
-                            return;
+                        int sectionIndex = sectionUpdate.sectionIndex;
+
+                        if (sectionIndex * 16 > maxHeight) {
+                            warnHeight("max", maxHeight, sectionIndex * 16, chunkUpdates);
+                            continue;
                         }
-                        chunk.getSection(chunk.getSectionIndex(y))
-                                .setBlockState(update.x & 15, y & 15, update.z & 15, update.state, false);
+                        if ((sectionIndex + 1) * 16 < minHeight) {
+                            warnHeight("min", minHeight, sectionIndex * 16, chunkUpdates);
+                            continue;
+                        }
+
+                        LevelChunkSection section = chunk.getSection(sectionIndex);
+
+                        for (BlockUpdate update : sectionUpdate.updates) {
+                            int y = update.y;
+                            section.setBlockState(update.x & 15, y & 15, update.z & 15, update.state, false);
+                        }
                     }
                 }
 
@@ -113,7 +125,7 @@ public class NexelLevel {
     private void warnHeight(@NotNull String height, int heightShouldBe, int y, @NotNull ChunkUpdates chunkUpdates) {
         NexelArena.instance()
                 .getSLF4JLogger()
-                .warn("Tried to set block at y: {} in chunk: {}, {} but the {} height is: {}!", y, chunkUpdates.chunkX, chunkUpdates.chunkZ, height, heightShouldBe);
+                .warn("Tried to set block at y: {} - in chunk: {}, {} - but the {} height is: {}!", y, chunkUpdates.chunkX, chunkUpdates.chunkZ, height, heightShouldBe);
         NexelArena.instance()
                 .getSLF4JLogger()
                 .warn("Please try to minimize air blocks in your schematics! it will be much faster, less memory consumption, and less storage usage!");

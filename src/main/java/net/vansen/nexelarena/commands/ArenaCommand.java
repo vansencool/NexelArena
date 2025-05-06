@@ -97,8 +97,8 @@ public class ArenaCommand {
                                             context.response("<#8336ff>Schematic loaded, " + ((endSche - startSche) / 1000000) + " ms");
                                             context.response("<#8336ff>Regenerating from the schematic...");
                                             long start = System.nanoTime();
-                                            NexelLevel nexel = schematic.asLevel();
-                                            nexel.callback(blocks -> {
+                                            NexelLevel nexel = schematic.paste().join();
+                                            nexel.blockCallback(blocks -> {
                                                 long end = System.nanoTime();
                                                 context.response("");
                                                 context.response("<#8336ff>Schematic pasted, applied " + NumberFormatter.format(blocks) + " blocks, " + ((end - start) / 1000000) + " ms");

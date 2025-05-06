@@ -91,13 +91,17 @@ public class RegionUtils {
 
                 for (int x = Math.max(minX, chunkX << 4); x <= Math.min(maxX, (chunkX << 4) + 15); x++) {
                     for (int y = minY; y <= maxY; y++) {
+                        int sectionIndex = y >> 4;
                         for (int z = Math.max(minZ, chunkZ << 4); z <= Math.min(maxZ, (chunkZ << 4) + 15); z++) {
                             BlockState state = chunk.getBlockState(x & 15, y, z & 15);
-                            chunkUpdates.updates.add(new BlockUpdate(x, y, z, state));
+                            chunkUpdates.addBlockUpdate(new BlockUpdate(x, y, z, state), sectionIndex);
                         }
                     }
                 }
-                chunkUpdatesList.add(chunkUpdates);
+
+                if (!chunkUpdates.getSectionUpdates().isEmpty()) {
+                    chunkUpdatesList.add(chunkUpdates);
+                }
             }
         }
         return chunkUpdatesList;
@@ -177,18 +181,25 @@ public class RegionUtils {
         int chunkMinZ = minZ >> 4;
         int chunkMaxZ = maxZ >> 4;
 
+        BlockState nmsState = ((CraftBlockState) newState).getHandle();
+
         for (int chunkX = chunkMinX; chunkX <= chunkMaxX; chunkX++) {
             for (int chunkZ = chunkMinZ; chunkZ <= chunkMaxZ; chunkZ++) {
                 ChunkUpdates chunkUpdates = new ChunkUpdates(chunkX, chunkZ);
 
                 for (int x = Math.max(minX, chunkX << 4); x <= Math.min(maxX, (chunkX << 4) + 15); x++) {
                     for (int y = minY; y <= maxY; y++) {
+                        int sectionIndex = y >> 4;
                         for (int z = Math.max(minZ, chunkZ << 4); z <= Math.min(maxZ, (chunkZ << 4) + 15); z++) {
-                            chunkUpdates.updates.add(new BlockUpdate(x, y, z, ((CraftBlockState) newState).getHandle()));
+                            BlockUpdate update = new BlockUpdate(x, y, z, nmsState);
+                            chunkUpdates.addBlockUpdate(update, sectionIndex);
                         }
                     }
                 }
-                chunkUpdatesList.add(chunkUpdates);
+
+                if (!chunkUpdates.getSectionUpdates().isEmpty()) {
+                    chunkUpdatesList.add(chunkUpdates);
+                }
             }
         }
         return chunkUpdatesList;

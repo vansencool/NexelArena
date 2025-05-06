@@ -4,12 +4,12 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.vansen.nexelarena.NexelArena;
 import net.vansen.nexelarena.config.Variables;
 import net.vansen.nexelarena.modification.NexelLevel;
-import net.vansen.nexelarena.schematic.cache.SchematicCache;
 import net.vansen.nexelarena.modification.update.BlockUpdate;
 import net.vansen.nexelarena.modification.update.ChunkUpdates;
+import net.vansen.nexelarena.modification.update.SectionUpdate;
+import net.vansen.nexelarena.schematic.cache.SchematicCache;
 import net.vansen.nexelarena.utils.NumberFormatter;
 import org.bukkit.Bukkit;
-import org.bukkit.Chunk;
 import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.craftbukkit.CraftWorld;
@@ -32,7 +32,7 @@ public class Schematic {
     private static final SchematicCache cache = new SchematicCache();
 
     private final List<ChunkUpdates> updates = new ArrayList<>();
-    private int originX, originY, originZ;
+    public int originX, originY, originZ;
     private World world;
     private NexelLevel level;
 
@@ -59,19 +59,20 @@ public class Schematic {
             for (int chunkX = chunkMinX; chunkX <= chunkMaxX; chunkX++) {
                 for (int chunkZ = chunkMinZ; chunkZ <= chunkMaxZ; chunkZ++) {
                     var chunk = ((CraftWorld) world).getHandle().getChunk(chunkX, chunkZ);
-                    long chunkKey = Chunk.getChunkKey(chunkX, chunkZ);
                     ChunkUpdates chunkUpdates = new ChunkUpdates(chunkX, chunkZ);
 
                     for (int x = Math.max(originX, chunkX << 4); x <= Math.min(maxX, (chunkX << 4) + 15); x++) {
                         for (int y = originY; y <= maxY; y++) {
+                            int sectionIndex = y >> 4;
                             for (int z = Math.max(originZ, chunkZ << 4); z <= Math.min(maxZ, (chunkZ << 4) + 15); z++) {
                                 BlockState state = chunk.getBlockStateFinal(x, y, z);
-                                chunkUpdates.updates.add(new BlockUpdate(x, y, z, state));
+                                BlockUpdate update = new BlockUpdate(x, y, z, state);
+                                chunkUpdates.addBlockUpdate(update, sectionIndex);
                             }
                         }
                     }
 
-                    if (!chunkUpdates.updates.isEmpty()) {
+                    if (!chunkUpdates.getSectionUpdates().isEmpty()) {
                         updates.add(chunkUpdates);
                         world.addPluginChunkTicket(chunkX, chunkZ, NexelArena.instance());
                     }
@@ -79,7 +80,8 @@ public class Schematic {
             }
 
             long end = System.nanoTime();
-            player.sendRichMessage("<#8336ff>Done getting blocks (took: " + (end - start) / 1000000 + " ms, total: " + NumberFormatter.format(updates.stream().mapToInt(u -> u.updates.size()).sum()) + "), now saving...");
+            player.sendRichMessage("<#8336ff>Done getting blocks (took: " + (end - start) / 1000000 + " ms, total: " +
+                    NumberFormatter.format(updates.stream().mapToInt(ChunkUpdates::getBlockUpdateCount).sum()) + "), now saving...");
             long start2 = System.nanoTime();
             save(file).thenRun(() -> {
                 long end2 = System.nanoTime();
@@ -125,10 +127,12 @@ public class Schematic {
                 int index = 1;
 
                 for (ChunkUpdates chunkUpdates : updates) {
-                    for (BlockUpdate update : chunkUpdates.updates) {
-                        if (update.state == null || indexes.containsKey(update.state)) continue;
-                        indexes.put(update.state, index++);
-                        states.add(update.state.toString());
+                    for (SectionUpdate sectionUpdate : chunkUpdates.getSectionUpdates()) {
+                        for (BlockUpdate update : sectionUpdate.updates) {
+                            if (update.state == null || indexes.containsKey(update.state)) continue;
+                            indexes.put(update.state, index++);
+                            states.add(update.state.toString());
+                        }
                     }
                 }
 
@@ -145,13 +149,15 @@ public class Schematic {
                 AtomicInteger maxZ = new AtomicInteger(Integer.MIN_VALUE);
 
                 for (ChunkUpdates chunkUpdates : updates) {
-                    for (BlockUpdate update : chunkUpdates.updates) {
-                        minX.set(Math.min(minX.get(), update.x - originX));
-                        minY.set(Math.min(minY.get(), update.y - originY));
-                        minZ.set(Math.min(minZ.get(), update.z - originZ));
-                        maxX.set(Math.max(maxX.get(), update.x - originX));
-                        maxY.set(Math.max(maxY.get(), update.y - originY));
-                        maxZ.set(Math.max(maxZ.get(), update.z - originZ));
+                    for (SectionUpdate sectionUpdate : chunkUpdates.getSectionUpdates()) {
+                        for (BlockUpdate update : sectionUpdate.updates) {
+                            minX.set(Math.min(minX.get(), update.x - originX));
+                            minY.set(Math.min(minY.get(), update.y - originY));
+                            minZ.set(Math.min(minZ.get(), update.z - originZ));
+                            maxX.set(Math.max(maxX.get(), update.x - originX));
+                            maxY.set(Math.max(maxY.get(), update.y - originY));
+                            maxZ.set(Math.max(maxZ.get(), update.z - originZ));
+                        }
                     }
                 }
 
@@ -171,11 +177,13 @@ public class Schematic {
                 Arrays.fill(flatData, 0);
 
                 for (ChunkUpdates chunkUpdates : updates) {
-                    for (BlockUpdate update : chunkUpdates.updates) {
-                        int flatIndex = ((update.x - originX - minX.get()) * sizeY * sizeZ) +
-                                ((update.y - originY - minY.get()) * sizeZ) +
-                                (update.z - originZ - minZ.get());
-                        flatData[flatIndex] = update.state == null ? 0 : indexes.get(update.state);
+                    for (SectionUpdate sectionUpdate : chunkUpdates.getSectionUpdates()) {
+                        for (BlockUpdate update : sectionUpdate.updates) {
+                            int flatIndex = ((update.x - originX - minX.get()) * sizeY * sizeZ) +
+                                    ((update.y - originY - minY.get()) * sizeZ) +
+                                    (update.z - originZ - minZ.get());
+                            flatData[flatIndex] = update.state == null ? 0 : indexes.get(update.state);
+                        }
                     }
                 }
 
@@ -256,40 +264,46 @@ public class Schematic {
                 i += runLength;
             }
 
-            Map<Long, ChunkUpdates> chunkMap = new HashMap<>();
-
-            int minChunkX = (minX + schematic.originX) >> 4;
-            int maxChunkX = (maxX + schematic.originX) >> 4;
-            int minChunkZ = (minZ + schematic.originZ) >> 4;
-            int maxChunkZ = (maxZ + schematic.originZ) >> 4;
+            int minChunkX = (schematic.originX + minX) >> 4;
+            int maxChunkX = (schematic.originX + maxX) >> 4;
+            int minChunkZ = (schematic.originZ + minZ) >> 4;
+            int maxChunkZ = (schematic.originZ + maxZ) >> 4;
 
             for (int chunkX = minChunkX; chunkX <= maxChunkX; chunkX++) {
                 for (int chunkZ = minChunkZ; chunkZ <= maxChunkZ; chunkZ++) {
                     ChunkUpdates chunkUpdates = new ChunkUpdates(chunkX, chunkZ);
 
-                    int startX = Math.max(minX + schematic.originX, chunkX << 4);
-                    int endX = Math.min(maxX + schematic.originX, (chunkX << 4) + 15);
-                    int startZ = Math.max(minZ + schematic.originZ, chunkZ << 4);
-                    int endZ = Math.min(maxZ + schematic.originZ, (chunkZ << 4) + 15);
+                    int startX = Math.max(schematic.originX + minX, chunkX << 4);
+                    int endX = Math.min(schematic.originX + maxX, (chunkX << 4) + 15);
+                    int startZ = Math.max(schematic.originZ + minZ, chunkZ << 4);
+                    int endZ = Math.min(schematic.originZ + maxZ, (chunkZ << 4) + 15);
 
                     for (int x = startX; x <= endX; x++) {
-                        for (int y = minY + schematic.originY; y <= maxY + schematic.originY; y++) {
+                        for (int y = schematic.originY + minY; y <= schematic.originY + maxY; y++) {
+                            int sectionIndex = y >> 4;
                             for (int z = startZ; z <= endZ; z++) {
-                                int relX = x - (minX + schematic.originX);
-                                int relY = y - (minY + schematic.originY);
-                                int relZ = z - (minZ + schematic.originZ);
+                                int relX = x - schematic.originX - minX;
+                                int relY = y - schematic.originY - minY;
+                                int relZ = z - schematic.originZ - minZ;
 
                                 int index = (relX * sizeY * sizeZ) + (relY * sizeZ) + relZ;
+                                if (index < 0 || index >= flatData.length) {
+                                    NexelArena.instance().getSLF4JLogger()
+                                            .warn("Invalid index: {} for coords {},{},{}", index, x, y, z);
+                                    continue;
+                                }
+
                                 int stateIndex = flatData[index];
 
                                 if (stateIndex != 0) {
-                                    chunkUpdates.updates.add(new BlockUpdate(x, y, z, states.get(stateIndex - 1)));
+                                    BlockUpdate update = new BlockUpdate(x, y, z, states.get(stateIndex - 1));
+                                    chunkUpdates.addBlockUpdate(update, sectionIndex);
                                 }
                             }
                         }
                     }
 
-                    if (!chunkUpdates.updates.isEmpty()) {
+                    if (!chunkUpdates.getSectionUpdates().isEmpty()) {
                         schematic.updates.add(chunkUpdates);
                     }
                 }
