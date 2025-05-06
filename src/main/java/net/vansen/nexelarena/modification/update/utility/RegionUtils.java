@@ -19,49 +19,6 @@ import java.util.List;
 public class RegionUtils {
 
     /**
-     * Creates a list of BlockUpdate instances for all blocks in a specified region.
-     * <p>
-     * It is important to note if the region is more than one chunk, IT WILL NOT WORK PROPERLY WHEN USED IN NEXEL LEVEL!!
-     *
-     * @param start The starting location of the region.
-     * @param end   The ending location of the region.
-     * @return A list of BlockUpdate instances representing the current region.
-     * @see RegionUtils#createChunkUpdates(Location, Location)
-     */
-    public static List<BlockUpdate> createBlockUpdates(@NotNull Location start, @NotNull Location end) {
-        World world = start.getWorld();
-        List<BlockUpdate> updates = new ArrayList<>();
-
-        int minX = Math.min(start.getBlockX(), end.getBlockX());
-        int minY = Math.min(start.getBlockY(), end.getBlockY());
-        int minZ = Math.min(start.getBlockZ(), end.getBlockZ());
-        int maxX = Math.max(start.getBlockX(), end.getBlockX());
-        int maxY = Math.max(start.getBlockY(), end.getBlockY());
-        int maxZ = Math.max(start.getBlockZ(), end.getBlockZ());
-
-        int chunkMinX = minX >> 4;
-        int chunkMaxX = maxX >> 4;
-        int chunkMinZ = minZ >> 4;
-        int chunkMaxZ = maxZ >> 4;
-
-        for (int chunkX = chunkMinX; chunkX <= chunkMaxX; chunkX++) {
-            for (int chunkZ = chunkMinZ; chunkZ <= chunkMaxZ; chunkZ++) {
-                var chunk = ((CraftWorld) world).getHandle().getChunk(chunkX, chunkZ);
-
-                for (int x = Math.max(minX, chunkX << 4); x <= Math.min(maxX, (chunkX << 4) + 15); x++) {
-                    for (int y = minY; y <= maxY; y++) {
-                        for (int z = Math.max(minZ, chunkZ << 4); z <= Math.min(maxZ, (chunkZ << 4) + 15); z++) {
-                            BlockState state = chunk.getBlockState(x & 15, y, z & 15);
-                            updates.add(new BlockUpdate(x, y, z, state));
-                        }
-                    }
-                }
-            }
-        }
-        return updates;
-    }
-
-    /**
      * Creates a ChunkUpdates instance for all chunks in a specified region.
      *
      * @param start The starting location of the region.
@@ -84,6 +41,9 @@ public class RegionUtils {
         int chunkMinZ = minZ >> 4;
         int chunkMaxZ = maxZ >> 4;
 
+        int minHeight = world.getMinHeight();
+        int minSection = minHeight >> 4;
+
         for (int chunkX = chunkMinX; chunkX <= chunkMaxX; chunkX++) {
             for (int chunkZ = chunkMinZ; chunkZ <= chunkMaxZ; chunkZ++) {
                 ChunkUpdates chunkUpdates = new ChunkUpdates(chunkX, chunkZ);
@@ -91,10 +51,11 @@ public class RegionUtils {
 
                 for (int x = Math.max(minX, chunkX << 4); x <= Math.min(maxX, (chunkX << 4) + 15); x++) {
                     for (int y = minY; y <= maxY; y++) {
-                        int sectionIndex = y >> 4;
+                        int global = y >> 4;
+                        int sectionIndex = global - minSection;
+
                         for (int z = Math.max(minZ, chunkZ << 4); z <= Math.min(maxZ, (chunkZ << 4) + 15); z++) {
-                            BlockState state = chunk.getBlockState(x & 15, y, z & 15);
-                            chunkUpdates.addBlockUpdate(new BlockUpdate(x, y, z, state), sectionIndex);
+                            chunkUpdates.addBlockUpdate(new BlockUpdate(x, y, z, chunk.getBlockStateFinal(x, y, z)), sectionIndex);
                         }
                     }
                 }
@@ -116,45 +77,6 @@ public class RegionUtils {
      */
     public static BlockUpdate createSingleBlockUpdate(@NotNull Location location, @NotNull org.bukkit.block.BlockState newState) {
         return new BlockUpdate(location.getBlockX(), location.getBlockY(), location.getBlockZ(), ((CraftBlockState) newState).getHandle());
-    }
-
-    /**
-     * Creates a list of BlockUpdate instances for a region, setting all blocks to a specific state.
-     * <p>
-     * It is important to note if the region is more than one chunk, IT WILL NOT WORK PROPERLY WHEN USED IN NEXEL LEVEL!!
-     *
-     * @param start    The starting location of the region.
-     * @param end      The ending location of the region.
-     * @param newState The new block state to set for all blocks in the region.
-     * @return A list of BlockUpdate instances representing the region with the new state.
-     */
-    public static List<BlockUpdate> setBlockState(@NotNull Location start, @NotNull Location end, @NotNull org.bukkit.block.BlockState newState) {
-        List<BlockUpdate> updates = new ArrayList<>();
-
-        int minX = Math.min(start.getBlockX(), end.getBlockX());
-        int minY = Math.min(start.getBlockY(), end.getBlockY());
-        int minZ = Math.min(start.getBlockZ(), end.getBlockZ());
-        int maxX = Math.max(start.getBlockX(), end.getBlockX());
-        int maxY = Math.max(start.getBlockY(), end.getBlockY());
-        int maxZ = Math.max(start.getBlockZ(), end.getBlockZ());
-
-        int chunkMinX = minX >> 4;
-        int chunkMaxX = maxX >> 4;
-        int chunkMinZ = minZ >> 4;
-        int chunkMaxZ = maxZ >> 4;
-
-        for (int chunkX = chunkMinX; chunkX <= chunkMaxX; chunkX++) {
-            for (int chunkZ = chunkMinZ; chunkZ <= chunkMaxZ; chunkZ++) {
-                for (int x = Math.max(minX, chunkX << 4); x <= Math.min(maxX, (chunkX << 4) + 15); x++) {
-                    for (int y = minY; y <= maxY; y++) {
-                        for (int z = Math.max(minZ, chunkZ << 4); z <= Math.min(maxZ, (chunkZ << 4) + 15); z++) {
-                            updates.add(new BlockUpdate(x, y, z, ((CraftBlockState) newState).getHandle()));
-                        }
-                    }
-                }
-            }
-        }
-        return updates;
     }
 
     /**
@@ -183,16 +105,20 @@ public class RegionUtils {
 
         BlockState nmsState = ((CraftBlockState) newState).getHandle();
 
+        int minHeight = world.getMinHeight();
+        int minSection = minHeight >> 4;
+
         for (int chunkX = chunkMinX; chunkX <= chunkMaxX; chunkX++) {
             for (int chunkZ = chunkMinZ; chunkZ <= chunkMaxZ; chunkZ++) {
                 ChunkUpdates chunkUpdates = new ChunkUpdates(chunkX, chunkZ);
 
                 for (int x = Math.max(minX, chunkX << 4); x <= Math.min(maxX, (chunkX << 4) + 15); x++) {
                     for (int y = minY; y <= maxY; y++) {
-                        int sectionIndex = y >> 4;
+                        int global = y >> 4;
+                        int sectionIndex = global - minSection;
+
                         for (int z = Math.max(minZ, chunkZ << 4); z <= Math.min(maxZ, (chunkZ << 4) + 15); z++) {
-                            BlockUpdate update = new BlockUpdate(x, y, z, nmsState);
-                            chunkUpdates.addBlockUpdate(update, sectionIndex);
+                            chunkUpdates.addBlockUpdate(new BlockUpdate(x, y, z, nmsState), sectionIndex);
                         }
                     }
                 }

@@ -27,7 +27,7 @@ import java.util.concurrent.CompletableFuture;
 @SuppressWarnings("unused")
 public class Schematic {
 
-    public static final String HEADER = "ZEAx9104817f2";
+    public static final String HEADER = "ZEAx9104817V2";
     private static final SchematicCache cache = new SchematicCache();
 
     private final List<ChunkUpdates> updates = new ArrayList<>();
@@ -199,9 +199,14 @@ public class Schematic {
 
         Schematic schematic = new Schematic();
         try (DataInputStream dis = new DataInputStream(new BufferedInputStream(new FileInputStream(file)))) {
-            String header = dis.readUTF();
+            String header;
+            try {
+                header = dis.readUTF();
+            } catch (Exception e) {
+                throw new IOException("Invalid schematic file: " + file.getAbsolutePath(), e);
+            }
             if (!header.equals(HEADER)) {
-                throw new IOException("Invalid schematic file: " + file.getAbsolutePath());
+                throw new IOException("Invalid schematic file: " + file.getAbsolutePath() + " (found header: " + header + ")");
             }
 
             String worldName = dis.readUTF();

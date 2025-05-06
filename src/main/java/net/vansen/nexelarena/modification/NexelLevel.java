@@ -5,6 +5,9 @@ import net.minecraft.world.level.chunk.ChunkAccess;
 import net.minecraft.world.level.chunk.LevelChunkSection;
 import net.vansen.nexelarena.NexelArena;
 import net.vansen.nexelarena.config.Variables;
+import net.vansen.nexelarena.modification.block.BlockSet;
+import net.vansen.nexelarena.modification.block.impl.MiddleLevelUncheckedBlockSet;
+import net.vansen.nexelarena.modification.block.impl.UnsafeBlockSet;
 import net.vansen.nexelarena.modification.update.BlockUpdate;
 import net.vansen.nexelarena.modification.update.ChunkUpdates;
 import net.vansen.nexelarena.modification.update.SectionUpdate;
@@ -34,8 +37,7 @@ public class NexelLevel {
     private final World world;
     private boolean clearAfterApply = true;
     private final Object lock = new Object();
-    private final int maxHeight;
-    private final int minHeight;
+    private BlockSet set = Variables.SET_BLOCKS_UNSAFE ? new UnsafeBlockSet() : new MiddleLevelUncheckedBlockSet();
 
     /**
      * Creates a new NexelLevel instance.
@@ -44,8 +46,17 @@ public class NexelLevel {
      */
     public NexelLevel(@NotNull World world) {
         this.world = world;
-        maxHeight = world.getMaxHeight();
-        minHeight = world.getMinHeight();
+    }
+
+    /**
+     * Creates a new NexelLevel instance.
+     *
+     * @param world The world to use.
+     * @param set   The block set to use.
+     */
+    public NexelLevel(@NotNull World world, @NotNull BlockSet set) {
+        this.world = world;
+        this.set = set;
     }
 
     /**
@@ -79,20 +90,10 @@ public class NexelLevel {
                             continue;
                         }
 
-                        if (sectionIndex * 16 > maxHeight) {
-                            warnHeight("max", maxHeight, sectionIndex * 16, chunkUpdates);
-                            continue;
-                        }
-                        if ((sectionIndex + 1) * 16 < minHeight) {
-                            warnHeight("min", minHeight, sectionIndex * 16, chunkUpdates);
-                            continue;
-                        }
-
                         LevelChunkSection section = chunk.getSection(sectionIndex);
 
                         for (BlockUpdate update : sectionUpdate.updates) {
-                            int y = update.y;
-                            section.setBlockState(update.x & 15, y & 15, update.z & 15, update.state, false);
+                            set.set(update.x & 15, update.y & 15, update.z & 15, update.state, chunk, section);
                         }
                     }
                 }
@@ -125,13 +126,15 @@ public class NexelLevel {
         }
     }
 
-    private void warnHeight(@NotNull String height, int heightShouldBe, int y, @NotNull ChunkUpdates chunkUpdates) {
-        NexelArena.instance()
-                .getSLF4JLogger()
-                .warn("Tried to set block at y: {} - in chunk: {}, {} - but the {} height is: {}!", y, chunkUpdates.chunkX, chunkUpdates.chunkZ, height, heightShouldBe);
-        NexelArena.instance()
-                .getSLF4JLogger()
-                .warn("Please try to minimize air blocks in your schematics! it will be much faster, less memory consumption, and less storage usage!");
+    /**
+     * Sets the block set to use.
+     *
+     * @param set The block set to use.
+     * @return The current instance of NexelLevel.
+     */
+    public NexelLevel set(@NotNull BlockSet set) {
+        this.set = set;
+        return this;
     }
 
     /**

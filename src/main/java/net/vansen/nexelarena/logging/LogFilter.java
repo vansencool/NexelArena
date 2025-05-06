@@ -11,7 +11,7 @@ import org.apache.logging.log4j.core.Logger;
 import org.apache.logging.log4j.message.Message;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -21,15 +21,19 @@ import java.util.List;
  */
 public class LogFilter implements Filter {
 
-    public static List<String> list = Arrays.asList(
+    public static List<String> list = new ArrayList<>(List.of(
             "Failed to create block entity",
             "Skipping BlockEntity with id",
             "Invalid block entity",
-            "Invalid for ticking"
-    );
+            "Invalid for ticking",
+            "Tried to load a block entity for block"
+    ));
 
     public static void register() {
         if (Variables.ENABLE_LOG_FILTER) {
+            if (Variables.BLOCK_THE_ERROR_FROM_UNSAFE) {
+                list.add("Exception thrown from thread");
+            }
             ((Logger) LogManager.getRootLogger()).addFilter(new LogFilter());
         }
     }

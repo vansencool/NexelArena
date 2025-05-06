@@ -156,7 +156,7 @@ public class BenchmarkBlocksCommand {
     }
 
     private static void revertAir(World world, Location origin, int width, int height, int depth) {
-        NexelLevel level = new NexelLevel(world).clearAfterApply(false).updates(RegionUtils.setChunkState(
+        NexelLevel level = new NexelLevel(world).updates(RegionUtils.setChunkState(
                 new Location(world, origin.getX(), origin.getY(), origin.getZ()),
                 new Location(world, origin.getX() + width - 1, origin.getY() + height - 1, origin.getZ() + depth - 1),
                 Material.AIR.createBlockData().createBlockState()));

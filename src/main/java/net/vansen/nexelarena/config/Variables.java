@@ -19,4 +19,10 @@ public class Variables {
      */
     public static boolean ENABLE_BENCHMARK_COMMAND = false;
     public static boolean ENABLE_BENCHMARK_BLOCKS_COMMAND = false;
+
+    /**
+     * Unsafe
+     */
+    public static boolean SET_BLOCKS_UNSAFE = false;
+    public static boolean BLOCK_THE_ERROR_FROM_UNSAFE = false;
 }

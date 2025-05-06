@@ -1,0 +1,22 @@
+package net.vansen.nexelarena.modification.block.impl;
+
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.chunk.ChunkAccess;
+import net.minecraft.world.level.chunk.LevelChunkSection;
+import net.vansen.nexelarena.NexelArena;
+import net.vansen.nexelarena.modification.block.BlockSet;
+import org.jetbrains.annotations.NotNull;
+
+public class UnsafeBlockSet implements BlockSet {
+
+    @Override
+    public void set(int x, int y, int z, @NotNull BlockState state, @NotNull ChunkAccess chunk, @NotNull LevelChunkSection section) {
+        try {
+            section.states.set(x, y, z, state);
+        } catch (Exception e) {
+            NexelArena.instance()
+                    .getSLF4JLogger()
+                    .error("Failed to set block at {} {} {}, this is very likely due to using unsafe, DO NOT REPORT THIS", x, y, z, e);
+        }
+    }
+}
