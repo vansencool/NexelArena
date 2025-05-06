@@ -14,7 +14,6 @@ import org.bukkit.World;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
 @SuppressWarnings("UnstableApiUsage")
@@ -88,15 +87,13 @@ public class BenchmarkBlocksCommand {
         }
     }
 
-    private static long benchmark(CommandWrapper context, Runnable method, int runs, World world, Location origin, int width, int height, int depth, int delay) {
+    private static long benchmark(CommandWrapper context, TimeRunnable method, int runs, World world, Location origin, int width, int height, int depth, int delay) {
         long totalTime = 0;
         context.response("");
         for (int i = 0; i < runs; i++) {
-            long start = System.nanoTime();
-            method.run();
-            long end = System.nanoTime();
-            context.response("<#c2d8ff>Run " + (i + 1) + ": " + formatResults(end - start, width * height * depth));
-            totalTime += (end - start);
+            long time = method.run();
+            context.response("<#c2d8ff>Run " + (i + 1) + ": " + formatResults(time, width * height * depth));
+            totalTime += time;
             try {
                 TimeUnit.SECONDS.sleep(delay);
             } catch (InterruptedException e) {
@@ -119,7 +116,8 @@ public class BenchmarkBlocksCommand {
         return String.format("%.2f ms (%.2fM blocks/sec)", timeMillis, blocksPerSec / 1_000_000);
     }
 
-    private static void runBukkitSet(World world, Location origin, int width, int height, int depth, Material material) {
+    private static long runBukkitSet(World world, Location origin, int width, int height, int depth, Material material) {
+        long start = System.nanoTime();
         CompletableFuture.runAsync(() -> {
             for (int x = 0; x < width; x++) {
                 for (int y = 0; y < height; y++) {
@@ -129,20 +127,31 @@ public class BenchmarkBlocksCommand {
                 }
             }
         }, NexelArena.instance().getServer().getScheduler().getMainThreadExecutor(NexelArena.instance())).join();
+        long end = System.nanoTime();
+        return end - start;
     }
 
-    private static void nexelArena(World world, Location origin, int width, int height, int depth) {
+    private static long nexelArena(World world, Location origin, int width, int height, int depth) {
         NexelLevel level = new NexelLevel(world).clearAfterApply(false).updates(RegionUtils.setChunkState(
                 new Location(world, origin.getX(), origin.getY(), origin.getZ()),
                 new Location(world, origin.getX() + width - 1, origin.getY() + height - 1, origin.getZ() + depth - 1),
                 Material.STONE.createBlockData().createBlockState()));
-        CountDownLatch latch = new CountDownLatch(1);
-        level.blockCallback(callback -> latch.countDown());
+
+
+        CompletableFuture<Long> future = new CompletableFuture<>();
+        long startTime = System.nanoTime();
+        level.blockCallback(callback -> {
+            long endTime = System.nanoTime();
+            future.complete(endTime - startTime);
+        });
+
         level.applyPendingBlockUpdates();
+
         try {
-            latch.await();
-        } catch (InterruptedException e) {
+            return future.get();
+        } catch (Exception e) {
             Thread.currentThread().interrupt();
+            throw new RuntimeException("Error while waiting for NexelArena callback", e);
         }
     }
 
@@ -151,13 +160,14 @@ public class BenchmarkBlocksCommand {
                 new Location(world, origin.getX(), origin.getY(), origin.getZ()),
                 new Location(world, origin.getX() + width - 1, origin.getY() + height - 1, origin.getZ() + depth - 1),
                 Material.AIR.createBlockData().createBlockState()));
-        CountDownLatch latch = new CountDownLatch(1);
-        level.callback(callback -> latch.countDown());
+        CompletableFuture<Void> future = new CompletableFuture<>();
+        level.callback(callback -> future.complete(null));
         level.applyPendingBlockUpdates();
         try {
-            latch.await();
-        } catch (InterruptedException e) {
+            future.get();
+        } catch (Exception e) {
             Thread.currentThread().interrupt();
+            throw new RuntimeException("Error while waiting for revertAir callback", e);
         }
     }
 
@@ -165,5 +175,9 @@ public class BenchmarkBlocksCommand {
         BUKKIT,
         NEXEL_ARENA,
         BOTH
+    }
+
+    public interface TimeRunnable {
+        long run();
     }
 }
