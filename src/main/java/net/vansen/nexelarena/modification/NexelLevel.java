@@ -86,7 +86,7 @@ public class NexelLevel {
                         if (sectionIndex < 0) {
                             NexelArena.instance()
                                     .getSLF4JLogger()
-                                    .warn("Section index is negative: {} - in chunk: {}, {} - please report this at https://github.com/vansencool/NexelArena", sectionUpdate.sectionIndex, chunkUpdates.chunkX, chunkUpdates.chunkZ);
+                                    .warn("Section index is negative: {} - in chunk: {}, {} - if you are think this is a bug, please report it at https://github.com/vansencool/NexelArena", sectionUpdate.sectionIndex, chunkUpdates.chunkX, chunkUpdates.chunkZ);
                             continue;
                         }
 

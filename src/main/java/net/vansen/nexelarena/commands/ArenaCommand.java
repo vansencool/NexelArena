@@ -11,10 +11,8 @@ import net.vansen.nexelarena.NexelArena;
 import net.vansen.nexelarena.corners.PositionManager;
 import net.vansen.nexelarena.corners.entry.PositionEntry;
 import net.vansen.nexelarena.modification.NexelLevel;
-import net.vansen.nexelarena.modification.update.utility.RegionUtils;
 import net.vansen.nexelarena.schematic.Schematic;
 import net.vansen.nexelarena.utils.NumberFormatter;
-import org.bukkit.Material;
 
 import java.io.File;
 import java.io.IOException;
@@ -161,32 +159,6 @@ public class ArenaCommand {
                                     } else {
                                         context.response("<#ff577e>Failed to delete file!");
                                     }
-                                })))
-                .subCommand(SubCommand.of("set")
-                        .argument(CommandArgument.string("material")
-                                .completion((context, wrapper) -> {
-                                    Arrays.stream(Material.values())
-                                            .map(m -> m.name().toLowerCase())
-                                            .filter(m -> m.startsWith(wrapper.builder().getRemainingLowerCase()))
-                                            .forEach(wrapper::suggest);
-                                    return wrapper.build();
-                                })
-                                .playerExecute(context -> {
-                                    Material material = Material.matchMaterial(context.arg("material", String.class));
-                                    if (material == null) {
-                                        context.response("<#ff577e>Invalid material");
-                                        return;
-                                    }
-                                    PositionEntry entry = PositionManager.get(context.playerName());
-                                    if (entry.first().isEmpty() || entry.second().isEmpty()) {
-                                        context.response("<#ff577e>pos1 or pos2 is not set!");
-                                        return;
-                                    }
-                                    // noinspection UnstableApiUsage
-                                    NexelLevel level = new NexelLevel(context.world())
-                                            .updates(RegionUtils.setChunkState(entry.first().orElseThrow(), entry.second().orElseThrow(), material.createBlockData().createBlockState()))
-                                            .blockCallback(integer -> context.response("<#8336ff>Set " + NumberFormatter.format(integer) + " blocks to " + material.name()));
-                                    level.applyPendingBlockUpdates();
                                 })))
                 .subCommand(SubCommand.of("cache")
                         .subCommand(SubCommand.of("clear")
